@@ -1,0 +1,19 @@
+{
+  "name": "@gateforge/user-service",
+  "version": "0.0.1",
+  "description": "GateForge User and Identity Microservice",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts"
+  },
+  "dependencies": {
+    "@gateforge/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
