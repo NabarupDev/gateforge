@@ -12,6 +12,8 @@ import { RegistryModule } from './registry/registry.module';
 import { LoadBalancerModule } from './load-balancer/load-balancer.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import { HealthMonitorModule } from './health-monitor/health-monitor.module';
+import { RuntimeStateModule } from './runtime-state/runtime-state.module';
+import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -27,6 +29,8 @@ import gatewayConfig from './config/gateway.config';
     AuthModule,
     RateLimitModule,
     HealthMonitorModule,
+    RuntimeStateModule,
+    CircuitBreakerModule,
     ProxyModule,
     LoggingModule,
     HealthModule,
