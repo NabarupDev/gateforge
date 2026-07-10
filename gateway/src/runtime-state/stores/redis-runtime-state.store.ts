@@ -95,4 +95,39 @@ export class RedisRuntimeStateStore implements RuntimeStateStore {
     }
     return count;
   }
+
+  async getServiceMetrics(serviceId: string): Promise<{ requests: number; retries: number; timeouts: number; successAfterRetry: number }> {
+    const currentMinute = Math.floor(Date.now() / 60000);
+    // Look back over the last 5 minutes
+    const minutes = [0, 1, 2, 3, 4].map(i => currentMinute - i);
+    
+    const pipeline = this.redis.pipeline();
+    for (const m of minutes) {
+      pipeline.get(`gf:metrics:service:${serviceId}:requests:${m}`);
+      pipeline.get(`gf:metrics:service:${serviceId}:retries:${m}`);
+      pipeline.get(`gf:metrics:service:${serviceId}:timeouts:${m}`);
+      pipeline.get(`gf:metrics:service:${serviceId}:successAfterRetry:${m}`);
+    }
+    
+    const results = await pipeline.exec() || [];
+    let requests = 0, retries = 0, timeouts = 0, successAfterRetry = 0;
+
+    for (let i = 0; i < minutes.length; i++) {
+      const offset = i * 4;
+      requests += parseInt(results[offset]?.[1] as string || '0', 10);
+      retries += parseInt(results[offset + 1]?.[1] as string || '0', 10);
+      timeouts += parseInt(results[offset + 2]?.[1] as string || '0', 10);
+      successAfterRetry += parseInt(results[offset + 3]?.[1] as string || '0', 10);
+    }
+
+    return { requests, retries, timeouts, successAfterRetry };
+  }
+
+  async incrementServiceMetric(serviceId: string, metric: 'requests' | 'retries' | 'timeouts' | 'successAfterRetry'): Promise<void> {
+    const currentMinute = Math.floor(Date.now() / 60000);
+    const key = `gf:metrics:service:${serviceId}:${metric}:${currentMinute}`;
+    await this.redis.incr(key);
+    // Keep 10 minutes of history
+    await this.redis.expire(key, 60 * 10);
+  }
 }

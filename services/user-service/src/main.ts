@@ -9,10 +9,18 @@ const PORT = process.env.PORT || 3001;
 let artificialDelay = 0;
 
 app.use(async (req, res, next) => {
+  const reqStart = Date.now();
+  console.log(`[${PORT}] Incoming ${req.method} ${req.path} at ${new Date().toISOString()}`);
   res.setHeader('x-served-by-port', String(PORT));
   if (artificialDelay > 0 && req.path !== '/health/delay') {
+    console.log(`[${PORT}] Delaying request for ${artificialDelay}ms`);
     await new Promise((resolve) => setTimeout(resolve, artificialDelay));
   }
+  
+  res.on('finish', () => {
+    console.log(`[${PORT}] Finished ${req.method} ${req.path} in ${Date.now() - reqStart}ms`);
+  });
+  
   next();
 });
 

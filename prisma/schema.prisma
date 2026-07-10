@@ -55,10 +55,15 @@ model Service {
   id        String                  @id @default(cuid())
   name      String                  @unique
   basePath  String                  @unique
-  strategy  LoadBalancingStrategy   @default(ROUND_ROBIN)
-  enabled   Boolean                 @default(true)
-  instances ServiceInstance[]
-  createdAt DateTime                @default(now())
+  strategy            LoadBalancingStrategy @default(ROUND_ROBIN)
+  enabled             Boolean               @default(true)
+  timeoutMs           Int                   @default(3000)
+  maxRetries          Int                   @default(2)
+  retryBackoffMs      Int                   @default(200)
+  idempotentRetries   Boolean               @default(true)
+  hedgingThresholdMs  Int?
+  instances           ServiceInstance[]
+  createdAt           DateTime              @default(now())
 }
 
 model ServiceInstance {

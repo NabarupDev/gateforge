@@ -14,6 +14,7 @@ import { ApiKeyModule } from './api-key/api-key.module';
 import { HealthMonitorModule } from './health-monitor/health-monitor.module';
 import { RuntimeStateModule } from './runtime-state/runtime-state.module';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
+import { RetryModule } from './retry/retry.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -31,6 +32,7 @@ import gatewayConfig from './config/gateway.config';
     HealthMonitorModule,
     RuntimeStateModule,
     CircuitBreakerModule,
+    RetryModule,
     ProxyModule,
     LoggingModule,
     HealthModule,

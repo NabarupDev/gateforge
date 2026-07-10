@@ -104,8 +104,13 @@ export interface Service {
   id: string;
   name: string;
   basePath: string;
-  strategy: LoadBalancingStrategy | string;
+  strategy: 'ROUND_ROBIN' | 'WEIGHTED_ROUND_ROBIN' | 'LEAST_CONNECTIONS';
   enabled: boolean;
+  timeoutMs: number;
+  maxRetries: number;
+  retryBackoffMs: number;
+  idempotentRetries: boolean;
+  hedgingThresholdMs?: number | null;
   instances?: ServiceInstance[];
   createdAt: Date | string;
 }

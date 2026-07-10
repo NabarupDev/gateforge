@@ -7,6 +7,11 @@ export class RegisterServiceDto {
   basePath!: string;
   strategy?: LoadBalancingStrategy | string;
   enabled?: boolean;
+  timeoutMs?: number;
+  maxRetries?: number;
+  retryBackoffMs?: number;
+  idempotentRetries?: boolean;
+  hedgingThresholdMs?: number;
 }
 
 export class RegisterInstanceDto {
@@ -38,12 +43,22 @@ export class RegistryService {
         basePath,
         strategy: strategy as any,
         enabled,
+        timeoutMs: dto.timeoutMs,
+        maxRetries: dto.maxRetries,
+        retryBackoffMs: dto.retryBackoffMs,
+        idempotentRetries: dto.idempotentRetries,
+        hedgingThresholdMs: dto.hedgingThresholdMs,
       },
       create: {
         name: dto.name,
         basePath,
         strategy: strategy as any,
         enabled,
+        timeoutMs: dto.timeoutMs,
+        maxRetries: dto.maxRetries,
+        retryBackoffMs: dto.retryBackoffMs,
+        idempotentRetries: dto.idempotentRetries,
+        hedgingThresholdMs: dto.hedgingThresholdMs,
       },
       include: { instances: true },
     });

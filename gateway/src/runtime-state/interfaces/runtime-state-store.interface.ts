@@ -28,4 +28,8 @@ export interface RuntimeStateStore {
   getConnections(instanceId: string): Promise<number>;
   incrementConnections(instanceId: string): Promise<number>;
   decrementConnections(instanceId: string): Promise<number>;
+
+  // Phase 8: Retry Budget & Service Metrics
+  getServiceMetrics(serviceId: string): Promise<{ requests: number; retries: number; timeouts: number; successAfterRetry: number }>;
+  incrementServiceMetric(serviceId: string, metric: 'requests' | 'retries' | 'timeouts' | 'successAfterRetry'): Promise<void>;
 }

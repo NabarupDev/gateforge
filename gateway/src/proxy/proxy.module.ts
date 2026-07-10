@@ -4,13 +4,14 @@ import { ConfigModule } from '@nestjs/config';
 import { ProxyController } from './proxy.controller';
 import { ProxyService } from './proxy.service';
 import { CircuitBreakerModule } from '../circuit-breaker/circuit-breaker.module';
+import { PipelineModule } from '../pipeline/pipeline.module';
 import gatewayConfig from '../config/gateway.config';
 
 @Module({
   imports: [
     HttpModule,
     ConfigModule.forFeature(gatewayConfig),
-    CircuitBreakerModule,
+    PipelineModule,
   ],
   controllers: [ProxyController],
   providers: [ProxyService],
