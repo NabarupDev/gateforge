@@ -1,5 +1,6 @@
-import { fork, ChildProcess } from 'child_process';
+import { spawn, fork, ChildProcess } from 'child_process';
 import * as path from 'path';
+import axios from 'axios';
 import * as http from 'http';
 import * as dotenv from 'dotenv';
 
@@ -235,8 +236,11 @@ async function runTests() {
     const inst3002 = instances.find((i: any) => i.port === 3002);
     if (!inst3002) throw new Error('Could not find instance with port 3002');
 
-    console.log(`Marking instance :3002 (${inst3002.id}) as healthy: false...`);
-    await makeRequest('PATCH', `http://localhost:3000/gateway/instances/${inst3002.id}/health`, {}, { healthy: false });
+    console.log(`Injecting artificial 4000ms delay into instance :3002 to trigger HealthMonitor UNHEALTHY...`);
+    await axios.post('http://localhost:3002/health/delay', { delay: 4000 });
+    
+    console.log(`Waiting 16 seconds for HealthMonitor to detect 3 consecutive failures...`);
+    await new Promise((resolve) => setTimeout(resolve, 16000));
 
     const failPorts: string[] = [];
     for (let i = 0; i < 6; i++) {
@@ -253,7 +257,10 @@ async function runTests() {
     console.log('✅ PASS: Gateway ignored healthy: false instance (:3002) and distributed to :3001 & :3003.');
 
     // Restore health of 3002
-    await makeRequest('PATCH', `http://localhost:3000/gateway/instances/${inst3002.id}/health`, {}, { healthy: true });
+    console.log(`Removing delay from instance :3002...`);
+    await axios.post('http://localhost:3002/health/delay', { delay: 0 });
+    console.log(`Waiting 16 seconds for HealthMonitor to detect 3 consecutive successes and restore instance...`);
+    await new Promise((resolve) => setTimeout(resolve, 16000));
 
     // --- Scenario 5: Dynamic Registration (:3004) ---
     console.log('\n====================================================');
