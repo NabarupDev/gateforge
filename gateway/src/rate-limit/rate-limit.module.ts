@@ -1,9 +1,11 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import Redis from 'ioredis';
 import { RATE_LIMITING_ALGORITHM } from './interfaces/rate-limiting-algorithm.interface';
 import { SlidingWindowLogAlgorithm, REDIS_CLIENT } from './algorithms/sliding-window-log.algorithm';
 import { RateLimitPolicyService } from './rate-limit-policy.service';
+import { RateLimitGuard } from './rate-limit.guard';
 
 @Global()
 @Module({
@@ -36,12 +38,18 @@ import { RateLimitPolicyService } from './rate-limit-policy.service';
       useClass: SlidingWindowLogAlgorithm,
     },
     RateLimitPolicyService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+    RateLimitGuard,
   ],
   exports: [
     REDIS_CLIENT,
     SlidingWindowLogAlgorithm,
     RATE_LIMITING_ALGORITHM,
     RateLimitPolicyService,
+    RateLimitGuard,
   ],
 })
 export class RateLimitModule {}

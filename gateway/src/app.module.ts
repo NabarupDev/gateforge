@@ -6,6 +6,7 @@ import { ProxyModule } from './proxy/proxy.module';
 import { LoggingModule } from './logging/logging.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { DatabaseModule } from './database/database.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import gatewayConfig from './config/gateway.config';
@@ -19,6 +20,7 @@ import gatewayConfig from './config/gateway.config';
     DatabaseModule,
     ApiKeyModule,
     AuthModule,
+    RateLimitModule,
     ProxyModule,
     LoggingModule,
     HealthModule,
