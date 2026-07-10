@@ -8,6 +8,7 @@
     "test": "pnpm -r test",
     "test:e2e": "pnpm -r test:e2e",
     "test:e2e:api-keys": "tsx scripts/test-api-keys.ts",
+    "test:e2e:rate-limit": "tsx scripts/test-rate-limit.ts",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "start:gateway": "pnpm --filter @gateforge/gateway start:dev",
