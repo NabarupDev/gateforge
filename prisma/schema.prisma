@@ -1,7 +1,7 @@
 // GateForge Central Database Schema (API Key management and analytics)
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 generator client {
