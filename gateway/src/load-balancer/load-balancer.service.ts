@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { Service, ServiceInstance, LoadBalancingStrategy } from '@gateforge/shared';
 import { LoadBalancingStrategyInterface } from './interfaces/load-balancing-strategy.interface';
 import { RoundRobinStrategy } from './strategies/round-robin.strategy';
+import { WeightedRoundRobinStrategy } from './strategies/weighted-round-robin.strategy';
 
 @Injectable()
 export class LoadBalancerService {
@@ -12,9 +13,11 @@ export class LoadBalancerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roundRobinStrategy: RoundRobinStrategy,
+    private readonly weightedRoundRobinStrategy: WeightedRoundRobinStrategy,
   ) {
     this.strategies = {
       [LoadBalancingStrategy.ROUND_ROBIN]: this.roundRobinStrategy,
+      [LoadBalancingStrategy.WEIGHTED_ROUND_ROBIN]: this.weightedRoundRobinStrategy,
     };
   }
 
