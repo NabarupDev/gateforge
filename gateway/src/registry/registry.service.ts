@@ -13,7 +13,6 @@ export class RegisterInstanceDto {
   host!: string;
   port!: number;
   weight?: number;
-  healthy?: boolean;
 }
 
 @Injectable()
@@ -66,7 +65,6 @@ export class RegistryService {
     const host = dto.host;
     const port = Number(dto.port);
     const weight = dto.weight ?? 1;
-    const healthy = dto.healthy ?? true;
 
     const existingInstance = await this.prisma.serviceInstance.findFirst({
       where: {
@@ -81,7 +79,6 @@ export class RegistryService {
         where: { id: existingInstance.id },
         data: {
           weight,
-          healthy,
         },
       });
       this.logger.log(`Updated instance ${host}:${port} for service "${service.name}"`);
@@ -94,8 +91,6 @@ export class RegistryService {
         host,
         port,
         weight,
-        healthy,
-        activeConnections: 0,
       },
     });
     this.logger.log(`Registered new instance ${host}:${port} for service "${service.name}"`);
@@ -113,40 +108,6 @@ export class RegistryService {
     return { success: true, id: instanceId };
   }
 
-  async updateInstanceHealth(
-    instanceId: string,
-    data: {
-      healthy: boolean;
-      healthStatus: string;
-      failureCount?: number;
-      successCount?: number;
-      averageLatency?: number | null;
-      lastHealthCheck?: Date;
-      lastHealthyAt?: Date | null;
-      lastFailureAt?: Date | null;
-    },
-  ) {
-    const instance = await this.prisma.serviceInstance.findUnique({ where: { id: instanceId } });
-    if (!instance) {
-      throw new NotFoundException(`Service instance ${instanceId} not found.`);
-    }
-
-    const updated = await this.prisma.serviceInstance.update({
-      where: { id: instanceId },
-      data: {
-        healthy: data.healthy,
-        healthStatus: data.healthStatus as any,
-        ...(data.failureCount !== undefined && { failureCount: data.failureCount }),
-        ...(data.successCount !== undefined && { successCount: data.successCount }),
-        ...(data.averageLatency !== undefined && { averageLatency: data.averageLatency }),
-        ...(data.lastHealthCheck && { lastHealthCheck: data.lastHealthCheck }),
-        ...(data.lastHealthyAt !== undefined && { lastHealthyAt: data.lastHealthyAt }),
-        ...(data.lastFailureAt !== undefined && { lastFailureAt: data.lastFailureAt }),
-      },
-    });
-    this.logger.log(`Instance ${instance.host}:${instance.port} health updated to ${data.healthStatus} (healthy: ${data.healthy})`);
-    return updated;
-  }
 
   async findServiceByPath(urlPath: string) {
     const pathOnly = urlPath.split('?')[0];

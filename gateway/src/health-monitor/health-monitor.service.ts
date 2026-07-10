@@ -1,9 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
 import { RegistryService } from '../registry/registry.service';
 import { HealthStatus } from '@gateforge/shared';
 import { lastValueFrom } from 'rxjs';
+import { RUNTIME_STATE_STORE } from '../runtime-state/interfaces/runtime-state-store.interface';
+import type { RuntimeStateStore } from '../runtime-state/interfaces/runtime-state-store.interface';
 
 @Injectable()
 export class HealthMonitorService {
@@ -12,6 +14,7 @@ export class HealthMonitorService {
   constructor(
     private readonly registryService: RegistryService,
     private readonly httpService: HttpService,
+    @Inject(RUNTIME_STATE_STORE) private readonly stateStore: RuntimeStateStore,
   ) {}
 
   @Interval(5000)
@@ -41,22 +44,26 @@ export class HealthMonitorService {
     }
 
     const latency = Date.now() - start;
-    let nextHealthStatus = instance.healthStatus as HealthStatus;
-    let nextHealthy = instance.healthy;
-    let failureCount = instance.failureCount;
-    let successCount = instance.successCount;
+
+    // Retrieve previous state from Redis
+    const previousState = await this.stateStore.getHealth(instance.id) || {
+      status: HealthStatus.HEALTHY,
+      failureCount: 0,
+      successCount: 0,
+      latency: 0,
+    };
+
+    let nextHealthStatus = previousState.status as HealthStatus;
+    let failureCount = previousState.failureCount;
+    let successCount = previousState.successCount;
     
     const now = new Date();
-    let lastHealthyAt = instance.lastHealthyAt;
-    let lastFailureAt = instance.lastFailureAt;
 
     if (success) {
       failureCount = 0;
       successCount += 1;
       
       if (successCount >= 3) {
-        nextHealthy = true;
-        lastHealthyAt = now;
         if (latency < 1500) {
           nextHealthStatus = HealthStatus.HEALTHY;
         } else {
@@ -68,30 +75,25 @@ export class HealthMonitorService {
       failureCount += 1;
       
       if (failureCount >= 3) {
-        nextHealthy = false;
         nextHealthStatus = HealthStatus.UNHEALTHY;
-        lastFailureAt = now;
       }
     }
 
     // Exponential Moving Average (EMA) for latency
-    const currentEma = instance.averageLatency || latency;
+    const currentEma = previousState.latency || latency;
     const averageLatency = (currentEma * 0.8) + (latency * 0.2);
 
     this.logger.debug(
       `HealthCheck [${instance.host}:${instance.port}] Latency: ${latency}ms, Status: ${nextHealthStatus}, Failures: ${failureCount}, Successes: ${successCount}`
     );
 
-    // Persist new health telemetry
-    await this.registryService.updateInstanceHealth(instance.id, {
-      healthy: nextHealthy,
-      healthStatus: nextHealthStatus,
+    // Persist new health telemetry to Redis
+    await this.stateStore.updateHealth(instance.id, {
+      status: nextHealthStatus,
       failureCount,
       successCount,
-      averageLatency,
-      lastHealthCheck: now,
-      lastHealthyAt,
-      lastFailureAt,
+      latency: averageLatency,
+      lastCheck: now.toISOString(),
     });
   }
 }

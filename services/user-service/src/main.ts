@@ -6,8 +6,13 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
-app.use((req, res, next) => {
+let artificialDelay = 0;
+
+app.use(async (req, res, next) => {
   res.setHeader('x-served-by-port', String(PORT));
+  if (artificialDelay > 0 && req.path !== '/health/delay') {
+    await new Promise((resolve) => setTimeout(resolve, artificialDelay));
+  }
   next();
 });
 
@@ -24,13 +29,8 @@ let users: User[] = [
   { id: '3', name: 'Charlie Brown', email: 'charlie@gateforge.com', role: 'user' },
 ];
 
-let artificialDelay = 0;
-
 // GET /health
 app.get('/health', async (req: Request, res: Response) => {
-  if (artificialDelay > 0) {
-    await new Promise((resolve) => setTimeout(resolve, artificialDelay));
-  }
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

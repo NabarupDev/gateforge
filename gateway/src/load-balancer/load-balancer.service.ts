@@ -1,10 +1,12 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { Service, ServiceInstance, LoadBalancingStrategy, HealthStatus } from '@gateforge/shared';
 import { LoadBalancingStrategyInterface } from './interfaces/load-balancing-strategy.interface';
 import { RoundRobinStrategy } from './strategies/round-robin.strategy';
 import { WeightedRoundRobinStrategy } from './strategies/weighted-round-robin.strategy';
 import { LeastConnectionsStrategy } from './strategies/least-connections.strategy';
+import { RUNTIME_STATE_STORE } from '../runtime-state/interfaces/runtime-state-store.interface';
+import type { RuntimeStateStore } from '../runtime-state/interfaces/runtime-state-store.interface';
 
 @Injectable()
 export class LoadBalancerService {
@@ -16,6 +18,7 @@ export class LoadBalancerService {
     private readonly roundRobinStrategy: RoundRobinStrategy,
     private readonly weightedRoundRobinStrategy: WeightedRoundRobinStrategy,
     private readonly leastConnectionsStrategy: LeastConnectionsStrategy,
+    @Inject(RUNTIME_STATE_STORE) private readonly stateStore: RuntimeStateStore,
   ) {
     this.strategies = {
       [LoadBalancingStrategy.ROUND_ROBIN]: this.roundRobinStrategy,
@@ -31,10 +34,24 @@ export class LoadBalancerService {
   async selectInstance(service: Service & { instances?: ServiceInstance[] }): Promise<ServiceInstance> {
     const instances = service.instances || [];
     
-    // Eligible for routing: HEALTHY or DEGRADED. Explicitly ignore UNHEALTHY instances.
-    const healthyInstances = instances.filter(
-      (i) => i.healthStatus === HealthStatus.HEALTHY || i.healthStatus === HealthStatus.DEGRADED || (i.healthStatus === undefined && i.healthy === true)
-    );
+    // Eligible for routing: HEALTHY or DEGRADED. Filter out UNHEALTHY based on RuntimeStateStore.
+    const healthyInstances: ServiceInstance[] = [];
+
+    for (const instance of instances) {
+      const state = await this.stateStore.getHealth(instance.id);
+      
+      // If we don't have health state yet, assume healthy until checked
+      const status = state ? state.status : HealthStatus.HEALTHY;
+      
+      if (status === HealthStatus.HEALTHY || status === HealthStatus.DEGRADED) {
+        // Hydrate the instance active connections count for LeastConnectionsStrategy
+        const activeConnections = await this.stateStore.getConnections(instance.id);
+        healthyInstances.push({
+          ...instance,
+          activeConnections,
+        });
+      }
+    }
 
     if (healthyInstances.length === 0) {
       this.logger.warn(`No healthy instances available for service "${service.name}"`);
@@ -58,33 +75,11 @@ export class LoadBalancerService {
     return selected;
   }
 
-  async incrementConnections(instanceId: string): Promise<ServiceInstance | null> {
-    try {
-      const updated = await this.prisma.serviceInstance.update({
-        where: { id: instanceId },
-        data: { activeConnections: { increment: 1 } },
-      });
-      return updated as unknown as ServiceInstance;
-    } catch (e: any) {
-      // Instance might have been deregistered during processing
-      return null;
-    }
+  async incrementConnections(instanceId: string): Promise<number> {
+    return this.stateStore.incrementConnections(instanceId);
   }
 
-  async decrementConnections(instanceId: string): Promise<ServiceInstance | null> {
-    try {
-      // Fetch current to avoid negative active connections
-      const current = await this.prisma.serviceInstance.findUnique({ where: { id: instanceId } });
-      if (!current || current.activeConnections <= 0) {
-        return current as unknown as ServiceInstance;
-      }
-      const updated = await this.prisma.serviceInstance.update({
-        where: { id: instanceId },
-        data: { activeConnections: { decrement: 1 } },
-      });
-      return updated as unknown as ServiceInstance;
-    } catch (e: any) {
-      return null;
-    }
+  async decrementConnections(instanceId: string): Promise<number> {
+    return this.stateStore.decrementConnections(instanceId);
   }
 }

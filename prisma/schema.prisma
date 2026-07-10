@@ -45,12 +45,6 @@ model ApiKey {
   createdAt   DateTime    @default(now())
 }
 
-enum HealthStatus {
-  HEALTHY
-  DEGRADED
-  UNHEALTHY
-}
-
 enum LoadBalancingStrategy {
   ROUND_ROBIN
   WEIGHTED_ROUND_ROBIN
@@ -75,15 +69,5 @@ model ServiceInstance {
   port              Int
   weight            Int          @default(1)
   
-  healthy           Boolean      @default(true)
-  healthStatus      HealthStatus @default(HEALTHY)
-  failureCount      Int          @default(0)
-  successCount      Int          @default(0)
-  lastHealthCheck   DateTime?
-  lastHealthyAt     DateTime?
-  lastFailureAt     DateTime?
-  averageLatency    Float?
-  
-  activeConnections Int          @default(0)
   createdAt         DateTime     @default(now())
 }

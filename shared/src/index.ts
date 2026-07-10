@@ -87,7 +87,7 @@ export interface ServiceInstance {
   port: number;
   weight: number;
   
-  healthy: boolean;
+  healthy?: boolean;
   healthStatus?: HealthStatus | string;
   failureCount?: number;
   successCount?: number;
@@ -96,7 +96,7 @@ export interface ServiceInstance {
   lastFailureAt?: Date | string | null;
   averageLatency?: number | null;
   
-  activeConnections: number;
+  activeConnections?: number;
   createdAt: Date | string;
 }
 
