@@ -8,6 +8,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { DatabaseModule } from './database/database.module';
+import { RegistryModule } from './registry/registry.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import gatewayConfig from './config/gateway.config';
 
@@ -18,6 +19,7 @@ import gatewayConfig from './config/gateway.config';
       load: [gatewayConfig],
     }),
     DatabaseModule,
+    RegistryModule,
     ApiKeyModule,
     AuthModule,
     RateLimitModule,

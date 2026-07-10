@@ -44,3 +44,31 @@ model ApiKey {
 
   createdAt   DateTime    @default(now())
 }
+
+enum LoadBalancingStrategy {
+  ROUND_ROBIN
+  WEIGHTED_ROUND_ROBIN
+  LEAST_CONNECTIONS
+}
+
+model Service {
+  id        String                  @id @default(cuid())
+  name      String                  @unique
+  basePath  String                  @unique
+  strategy  LoadBalancingStrategy   @default(ROUND_ROBIN)
+  enabled   Boolean                 @default(true)
+  instances ServiceInstance[]
+  createdAt DateTime                @default(now())
+}
+
+model ServiceInstance {
+  id                String   @id @default(cuid())
+  serviceId         String
+  service           Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  host              String
+  port              Int
+  weight            Int      @default(1)
+  healthy           Boolean  @default(true)
+  activeConnections Int      @default(0)
+  createdAt         DateTime @default(now())
+}

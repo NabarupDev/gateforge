@@ -67,3 +67,30 @@ export interface AuthenticatedPrincipal {
   scopes?: string[];
   [key: string]: any;
 }
+
+export enum LoadBalancingStrategy {
+  ROUND_ROBIN = 'ROUND_ROBIN',
+  WEIGHTED_ROUND_ROBIN = 'WEIGHTED_ROUND_ROBIN',
+  LEAST_CONNECTIONS = 'LEAST_CONNECTIONS',
+}
+
+export interface ServiceInstance {
+  id: string;
+  serviceId: string;
+  host: string;
+  port: number;
+  weight: number;
+  healthy: boolean;
+  activeConnections: number;
+  createdAt: Date | string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  basePath: string;
+  strategy: LoadBalancingStrategy | string;
+  enabled: boolean;
+  instances?: ServiceInstance[];
+  createdAt: Date | string;
+}
