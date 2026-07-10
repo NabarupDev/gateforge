@@ -24,5 +24,10 @@ export default registerAs('gateway', (): GatewayConfig => ({
       isPublic: false,
       requiredRoles: ['admin'],
     },
+    {
+      pathPrefix: '/consumers',
+      target: process.env.USER_SERVICE_URL || 'http://localhost:3001',
+      isPublic: false,
+    },
   ],
 }));
