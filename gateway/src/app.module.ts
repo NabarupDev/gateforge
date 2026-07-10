@@ -7,6 +7,7 @@ import { LoggingModule } from './logging/logging.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
+import { ApiKeyModule } from './api-key/api-key.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -16,6 +17,7 @@ import gatewayConfig from './config/gateway.config';
       load: [gatewayConfig],
     }),
     DatabaseModule,
+    ApiKeyModule,
     AuthModule,
     ProxyModule,
     LoggingModule,
