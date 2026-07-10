@@ -41,6 +41,9 @@ export class RegistryController {
   @Patch('instances/:id/health')
   @HttpCode(HttpStatus.OK)
   async updateInstanceHealth(@Param('id') id: string, @Body() body: { healthy: boolean }) {
-    return this.registryService.updateInstanceHealth(id, body.healthy);
+    return this.registryService.updateInstanceHealth(id, {
+      healthy: body.healthy,
+      healthStatus: body.healthy ? 'HEALTHY' : 'UNHEALTHY',
+    });
   }
 }

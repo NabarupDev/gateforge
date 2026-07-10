@@ -1,6 +1,6 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { Service, ServiceInstance, LoadBalancingStrategy } from '@gateforge/shared';
+import { Service, ServiceInstance, LoadBalancingStrategy, HealthStatus } from '@gateforge/shared';
 import { LoadBalancingStrategyInterface } from './interfaces/load-balancing-strategy.interface';
 import { RoundRobinStrategy } from './strategies/round-robin.strategy';
 import { WeightedRoundRobinStrategy } from './strategies/weighted-round-robin.strategy';
@@ -30,7 +30,11 @@ export class LoadBalancerService {
 
   async selectInstance(service: Service & { instances?: ServiceInstance[] }): Promise<ServiceInstance> {
     const instances = service.instances || [];
-    const healthyInstances = instances.filter((i) => i.healthy);
+    
+    // Eligible for routing: HEALTHY or DEGRADED. Explicitly ignore UNHEALTHY instances.
+    const healthyInstances = instances.filter(
+      (i) => i.healthStatus === HealthStatus.HEALTHY || i.healthStatus === HealthStatus.DEGRADED || (i.healthStatus === undefined && i.healthy === true)
+    );
 
     if (healthyInstances.length === 0) {
       this.logger.warn(`No healthy instances available for service "${service.name}"`);

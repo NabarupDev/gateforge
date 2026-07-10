@@ -11,6 +11,7 @@ import { DatabaseModule } from './database/database.module';
 import { RegistryModule } from './registry/registry.module';
 import { LoadBalancerModule } from './load-balancer/load-balancer.module';
 import { ApiKeyModule } from './api-key/api-key.module';
+import { HealthMonitorModule } from './health-monitor/health-monitor.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -25,6 +26,7 @@ import gatewayConfig from './config/gateway.config';
     ApiKeyModule,
     AuthModule,
     RateLimitModule,
+    HealthMonitorModule,
     ProxyModule,
     LoggingModule,
     HealthModule,

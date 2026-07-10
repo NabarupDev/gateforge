@@ -74,13 +74,28 @@ export enum LoadBalancingStrategy {
   LEAST_CONNECTIONS = 'LEAST_CONNECTIONS',
 }
 
+export enum HealthStatus {
+  HEALTHY = 'HEALTHY',
+  DEGRADED = 'DEGRADED',
+  UNHEALTHY = 'UNHEALTHY',
+}
+
 export interface ServiceInstance {
   id: string;
   serviceId: string;
   host: string;
   port: number;
   weight: number;
+  
   healthy: boolean;
+  healthStatus?: HealthStatus | string;
+  failureCount?: number;
+  successCount?: number;
+  lastHealthCheck?: Date | string | null;
+  lastHealthyAt?: Date | string | null;
+  lastFailureAt?: Date | string | null;
+  averageLatency?: number | null;
+  
   activeConnections: number;
   createdAt: Date | string;
 }

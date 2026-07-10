@@ -10,6 +10,7 @@
     "test:e2e:api-keys": "tsx scripts/test-api-keys.ts",
     "test:e2e:rate-limit": "tsx scripts/test-rate-limit.ts",
     "test:e2e:lb": "tsx scripts/test-load-balancer.ts",
+    "test:e2e:health": "tsx scripts/test-health.ts",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "start:gateway": "pnpm --filter @gateforge/gateway start:dev",

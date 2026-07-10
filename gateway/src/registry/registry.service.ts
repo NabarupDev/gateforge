@@ -113,7 +113,19 @@ export class RegistryService {
     return { success: true, id: instanceId };
   }
 
-  async updateInstanceHealth(instanceId: string, healthy: boolean) {
+  async updateInstanceHealth(
+    instanceId: string,
+    data: {
+      healthy: boolean;
+      healthStatus: string;
+      failureCount?: number;
+      successCount?: number;
+      averageLatency?: number | null;
+      lastHealthCheck?: Date;
+      lastHealthyAt?: Date | null;
+      lastFailureAt?: Date | null;
+    },
+  ) {
     const instance = await this.prisma.serviceInstance.findUnique({ where: { id: instanceId } });
     if (!instance) {
       throw new NotFoundException(`Service instance ${instanceId} not found.`);
@@ -121,9 +133,18 @@ export class RegistryService {
 
     const updated = await this.prisma.serviceInstance.update({
       where: { id: instanceId },
-      data: { healthy },
+      data: {
+        healthy: data.healthy,
+        healthStatus: data.healthStatus as any,
+        ...(data.failureCount !== undefined && { failureCount: data.failureCount }),
+        ...(data.successCount !== undefined && { successCount: data.successCount }),
+        ...(data.averageLatency !== undefined && { averageLatency: data.averageLatency }),
+        ...(data.lastHealthCheck && { lastHealthCheck: data.lastHealthCheck }),
+        ...(data.lastHealthyAt !== undefined && { lastHealthyAt: data.lastHealthyAt }),
+        ...(data.lastFailureAt !== undefined && { lastFailureAt: data.lastFailureAt }),
+      },
     });
-    this.logger.log(`Instance ${instance.host}:${instance.port} health updated to ${healthy}`);
+    this.logger.log(`Instance ${instance.host}:${instance.port} health updated to ${data.healthStatus} (healthy: ${data.healthy})`);
     return updated;
   }
 
@@ -152,6 +173,12 @@ export class RegistryService {
     return this.prisma.service.findMany({
       include: { instances: true },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  async getAllInstances() {
+    return this.prisma.serviceInstance.findMany({
+      include: { service: true },
     });
   }
 

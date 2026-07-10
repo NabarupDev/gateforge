@@ -24,6 +24,22 @@ let users: User[] = [
   { id: '3', name: 'Charlie Brown', email: 'charlie@gateforge.com', role: 'user' },
 ];
 
+let artificialDelay = 0;
+
+// GET /health
+app.get('/health', async (req: Request, res: Response) => {
+  if (artificialDelay > 0) {
+    await new Promise((resolve) => setTimeout(resolve, artificialDelay));
+  }
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// POST /health/delay
+app.post('/health/delay', (req: Request, res: Response) => {
+  artificialDelay = req.body.delay || 0;
+  res.status(200).json({ success: true, artificialDelay });
+});
+
 // GET /users
 app.get('/users', (req: Request, res: Response) => {
   res.status(200).json({
