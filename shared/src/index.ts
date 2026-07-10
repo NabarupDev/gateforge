@@ -36,3 +36,34 @@ export interface User {
   role: string;
   createdAt: Date | string;
 }
+
+export interface ApiConsumer {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt: Date | string;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  consumerId: string;
+  expiresAt?: Date | string | null;
+  revoked: boolean;
+  lastUsedAt?: Date | string | null;
+  usageCount: number;
+  createdAt: Date | string;
+}
+
+export interface AuthenticatedPrincipal {
+  type: 'jwt' | 'api-key';
+  id?: string;
+  userId?: string;
+  email?: string;
+  role?: string;
+  consumerId?: string;
+  keyId?: string;
+  scopes?: string[];
+  [key: string]: any;
+}

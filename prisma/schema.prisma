@@ -1,12 +1,12 @@
-// GateForge Central Database Schema (Prepared for API Key ownership and analytics)
+// GateForge Central Database Schema (API Key management and analytics)
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "library"
 }
 
 model User {
@@ -14,4 +14,33 @@ model User {
   email     String   @unique
   role      String
   createdAt DateTime @default(now())
+}
+
+model ApiConsumer {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  apiKeys     ApiKey[]
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+
+  name        String
+  prefix      String
+
+  hashedKey   String
+
+  consumerId  String
+  consumer    ApiConsumer @relation(fields: [consumerId], references: [id])
+
+  expiresAt   DateTime?
+  revoked     Boolean     @default(false)
+
+  lastUsedAt  DateTime?
+  usageCount  Int         @default(0)
+
+  createdAt   DateTime    @default(now())
 }
