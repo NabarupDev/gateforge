@@ -30,19 +30,47 @@ app.get('/users', (req: Request, res: Response) => {
 
 // GET /users/me (Inspect identity headers injected by GateForge)
 app.get('/users/me', (req: Request, res: Response) => {
+  const authType = req.headers['x-auth-type'] || null;
   const userId = req.headers['x-user-id'] || null;
   const userEmail = req.headers['x-user-email'] || null;
   const userRole = req.headers['x-user-role'] || null;
+  const consumerId = req.headers['x-consumer-id'] || null;
+  const apiKeyId = req.headers['x-api-key-id'] || null;
   const requestId = req.headers['x-request-id'] || req.headers['X-Request-ID'] || null;
 
   res.status(200).json({
     success: true,
     data: {
+      authType,
       userId,
       email: userEmail,
       role: userRole,
+      consumerId,
+      apiKeyId,
       requestId,
       message: 'Identity headers successfully received from GateForge API Gateway',
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /consumers/me (Inspect M2M API Key identity headers injected by GateForge)
+app.get('/consumers/me', (req: Request, res: Response) => {
+  const authType = req.headers['x-auth-type'] || null;
+  const consumerId = req.headers['x-consumer-id'] || null;
+  const apiKeyId = req.headers['x-api-key-id'] || null;
+  const role = req.headers['x-user-role'] || null;
+  const requestId = req.headers['x-request-id'] || req.headers['X-Request-ID'] || null;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      authType,
+      consumerId,
+      apiKeyId,
+      role,
+      requestId,
+      message: 'Consumer M2M identity headers successfully verified from GateForge API Gateway',
     },
     timestamp: new Date().toISOString(),
   });

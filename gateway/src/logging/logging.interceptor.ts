@@ -60,8 +60,14 @@ export class LoggingInterceptor implements NestInterceptor {
       req.requestId ||
       (req.headers && (req.headers['x-request-id'] || req.headers['X-Request-ID'])) ||
       'unknown';
-    const userId = req.user?.id || req.user?.sub || 'anonymous';
-    const role = req.user?.role || 'none';
+    const authType = req.auth?.type ? req.auth.type.toUpperCase() : 'NONE';
+    const principalId =
+      req.auth?.consumerId ||
+      req.auth?.userId ||
+      req.user?.id ||
+      req.user?.sub ||
+      'anonymous';
+    const role = req.auth?.role || req.user?.role || 'none';
 
     let status = 200;
     if (typeof res.statusCode === 'number') {
@@ -74,7 +80,8 @@ export class LoggingInterceptor implements NestInterceptor {
 
     console.log('\nIncoming Request\n');
     console.log(`Request ID : ${requestId}`);
-    console.log(`User ID    : ${userId}`);
+    console.log(`Auth Type  : ${authType}`);
+    console.log(`Principal  : ${principalId}`);
     console.log(`Role       : ${role}`);
     console.log(`Method     : ${method}`);
     console.log(`Path       : ${path}`);
