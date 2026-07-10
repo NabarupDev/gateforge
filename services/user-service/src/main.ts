@@ -6,6 +6,11 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
+app.use((req, res, next) => {
+  res.setHeader('x-served-by-port', String(PORT));
+  next();
+});
+
 interface User {
   id: string;
   name: string;
