@@ -1,41 +1,46 @@
 # GateForge Monorepo
 
-GateForge is an enterprise-grade API Gateway and microservice ecosystem built with **NestJS**, **Fastify**, and structured as a **pnpm monorepo**. It acts as the central entry point for backend microservices, handling reverse proxying, request/response logging, and service routing with strict end-to-end type safety via `@gateforge/shared`.
+GateForge is an enterprise-grade API Gateway and microservice ecosystem built with **NestJS**, **Fastify**, and structured as a **pnpm monorepo**. It acts as the central entry point for backend microservices, handling edge authentication, Role-Based Access Control (RBAC), identity forwarding (`x-user-*` headers), reverse proxying, request logging, and service routing with strict end-to-end type safety via `@gateforge/shared`.
 
 ## Architecture Overview
 
 ```text
-       Client / Consumer
+       Client / Consumer (Bearer JWT)
                │
                ▼
-      ┌────────────────┐
-      │  API Gateway   │  (Port 3000 - NestJS + Fastify)
-      │ (@gateforge/   │  ──► Logging Interceptor
-      │    gateway)    │  ──► Health Endpoint (/health)
-      └───────┬────────┘  ──► Reverse Proxy Service
-              │
-              ▼
-      ┌────────────────┐
-      │  User Service  │  (Port 3001 - Express REST API)
-      │ (@gateforge/   │  ──► Users CRUD endpoints
-      │  user-service) │  ──► In-memory store
-      └────────────────┘
+      ┌─────────────────────────────────┐
+      │           API Gateway           │  (Port 3000 - NestJS + Fastify)
+      │      (@gateforge/gateway)       │  ──► GatewayAuthGuard (JWT & RBAC verification)
+      │                                 │  ──► Injects x-user-id, x-user-email, x-user-role
+      │                                 │  ──► Logging Interceptor & Health Endpoint
+      └────────────────┬────────────────┘  ──► Reverse Proxy Service
+                       │
+                       ▼ (HTTP + Injected Identity Headers)
+      ┌─────────────────────────────────┐
+      │          User Service           │  (Port 3001 - Express REST API)
+      │   (@gateforge/user-service)     │  ──► Reads x-user-* headers directly
+      │                                 │  ──► Users & Admin CRUD endpoints
+      └─────────────────────────────────┘
 ```
 
-## Features Completed (Phase 1)
+## Features Completed (Phase 1 & Phase 2)
 
-- [x] **Reverse Proxy Core**: Catch-all routing forwarding method, path, query parameters, headers, and JSON body to target microservices (`axios` powered).
+- [x] **Edge JWT Authentication & RBAC**: Centralized `GatewayAuthGuard` verifying JWT signatures and role requirements (`@Roles('admin')` or `gateway.config.ts` requiredRoles) at the edge (`401 Unauthorized` / `403 Forbidden`).
+- [x] **Identity Header Forwarding**: Downstream microservices never parse JWTs. GateForge extracts claims and injects clean `x-user-id`, `x-user-email`, and `x-user-role` headers into proxied HTTP requests.
+- [x] **Public & Protected Route Management**: Supports `@Public()` decorator overrides (`GET /health`, `POST /auth/token`) alongside dynamic route config rules (`isPublic: false`).
+- [x] **Architecture Decision Records (`/docs`)**: Dedicated documentation folder with deep engineering trade-off specs (`0001-fastify.md`, `0002-axios-proxy.md`, `0003-route-config.md`).
+- [x] **Reverse Proxy Core**: Catch-all routing forwarding method, path, query parameters, headers, and JSON body to target microservices (`axios` powered with hop-by-hop header cleanup).
 - [x] **Connection Failure Handling**: Automatic `502 Bad Gateway` JSON response when downstream target services are unreachable or offline.
-- [x] **Header Cleanliness**: Automatic stripping of hop-by-hop headers (`host`, `connection`, `transfer-encoding`, etc.) on incoming requests and outgoing responses.
-- [x] **HTTP Method Support**: Full support for `GET`, `POST`, `PUT`, `PATCH`, and `DELETE`.
-- [x] **Request/Response Logging**: Global interceptor logging method, path, target URL, processing time (in `ms`), and response status code to the console.
-- [x] **Gateway Health Check**: Dedicated `GET /health` endpoint verifying gateway uptime and status before reaching downstream routes.
-- [x] **User Microservice**: Lightweight Express API (`:3001`) simulating identity management and user CRUD operations for end-to-end proxy testing.
+- [x] **Request/Response Logging**: Global interceptor logging method, path, target URL, processing time (in `ms`), and response status code (`Incoming Request` console formatting).
+- [x] **User Microservice**: Lightweight Express API (`:3001`) with endpoints (`/users`, `/users/me`, `/admin`) to test identity injection and RBAC.
 
 ## Repository Structure
 
 ```text
 GateForge/
+├── docs/             # Architecture Decision Records (ADRs) & technical design specs
+│   ├── architecture.md, routing.md, proxy-flow.md, authentication.md...
+│   └── decisions/    # 0001-fastify.md, 0002-axios-proxy.md, 0003-route-config.md
 ├── gateway/          # API Gateway (@gateforge/gateway) [Port 3000]
 ├── services/
 │   ├── user-service/ # User & Identity Service (@gateforge/user-service) [Port 3001]

@@ -28,6 +28,41 @@ app.get('/users', (req: Request, res: Response) => {
   });
 });
 
+// GET /users/me (Inspect identity headers injected by GateForge)
+app.get('/users/me', (req: Request, res: Response) => {
+  const userId = req.headers['x-user-id'] || null;
+  const userEmail = req.headers['x-user-email'] || null;
+  const userRole = req.headers['x-user-role'] || null;
+  const requestId = req.headers['x-request-id'] || req.headers['X-Request-ID'] || null;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      userId,
+      email: userEmail,
+      role: userRole,
+      requestId,
+      message: 'Identity headers successfully received from GateForge API Gateway',
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// GET /admin (Protected admin endpoint inside User Service)
+app.get('/admin', (req: Request, res: Response) => {
+  const userId = req.headers['x-user-id'] || null;
+  const userRole = req.headers['x-user-role'] || null;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      message: 'Welcome to the protected Admin Dashboard endpoint inside User Service!',
+      invokedBy: { userId, role: userRole },
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // GET /users/:id
 app.get('/users/:id', (req: Request, res: Response) => {
   const user = users.find((u) => u.id === req.params.id);

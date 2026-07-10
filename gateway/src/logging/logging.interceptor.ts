@@ -6,13 +6,36 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const httpContext = context.switchToHttp();
     const req = httpContext.getRequest();
+    const res = httpContext.getResponse();
     const now = Date.now();
+
+    // Ensure Request ID exists early
+    const existingId =
+      req.requestId ||
+      (req.headers && (req.headers['x-request-id'] || req.headers['X-Request-ID'])) ||
+      (req.raw && req.raw.headers && (req.raw.headers['x-request-id'] || req.raw.headers['X-Request-ID']));
+    const requestId = typeof existingId === 'string' && existingId.trim() ? existingId : randomUUID();
+
+    req.requestId = requestId;
+    if (req.raw) req.raw.requestId = requestId;
+    if (!req.headers) req.headers = {};
+    req.headers['x-request-id'] = requestId;
+    req.headers['X-Request-ID'] = requestId;
+
+    if (res && typeof res.header === 'function') {
+      res.header('X-Request-ID', requestId);
+    } else if (res && typeof res.setHeader === 'function') {
+      res.setHeader('X-Request-ID', requestId);
+    } else if (res && res.raw && typeof res.raw.setHeader === 'function') {
+      res.raw.setHeader('X-Request-ID', requestId);
+    }
 
     return next.handle().pipe(
       tap({
@@ -32,8 +55,14 @@ export class LoggingInterceptor implements NestInterceptor {
     const path = req.url || req.originalUrl || '/';
     const target = req.targetUrl || 'internal';
     const time = `${Date.now() - startTime}ms`;
-    
-    // Extract status code whether Fastify or Express
+
+    const requestId =
+      req.requestId ||
+      (req.headers && (req.headers['x-request-id'] || req.headers['X-Request-ID'])) ||
+      'unknown';
+    const userId = req.user?.id || req.user?.sub || 'anonymous';
+    const role = req.user?.role || 'none';
+
     let status = 200;
     if (typeof res.statusCode === 'number') {
       status = res.statusCode;
@@ -44,10 +73,13 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     console.log('\nIncoming Request\n');
-    console.log(`Method : ${method}`);
-    console.log(`Path   : ${path}`);
-    console.log(`Target : ${target}`);
-    console.log(`Time   : ${time}`);
-    console.log(`Status : ${status}`);
+    console.log(`Request ID : ${requestId}`);
+    console.log(`User ID    : ${userId}`);
+    console.log(`Role       : ${role}`);
+    console.log(`Method     : ${method}`);
+    console.log(`Path       : ${path}`);
+    console.log(`Target     : ${target}`);
+    console.log(`Status     : ${status}`);
+    console.log(`Time       : ${time}`);
   }
 }

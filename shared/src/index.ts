@@ -29,3 +29,10 @@ export interface BaseDto {
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
+
+export interface User {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: Date | string;
+}
