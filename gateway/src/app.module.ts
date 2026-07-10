@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { ProxyModule } from './proxy/proxy.module';
 import { LoggingModule } from './logging/logging.module';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './auth/auth.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -13,6 +14,7 @@ import gatewayConfig from './config/gateway.config';
       isGlobal: true,
       load: [gatewayConfig],
     }),
+    AuthModule,
     ProxyModule,
     LoggingModule,
     HealthModule,
