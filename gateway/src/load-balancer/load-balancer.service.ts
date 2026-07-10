@@ -4,6 +4,7 @@ import { Service, ServiceInstance, LoadBalancingStrategy } from '@gateforge/shar
 import { LoadBalancingStrategyInterface } from './interfaces/load-balancing-strategy.interface';
 import { RoundRobinStrategy } from './strategies/round-robin.strategy';
 import { WeightedRoundRobinStrategy } from './strategies/weighted-round-robin.strategy';
+import { LeastConnectionsStrategy } from './strategies/least-connections.strategy';
 
 @Injectable()
 export class LoadBalancerService {
@@ -14,10 +15,12 @@ export class LoadBalancerService {
     private readonly prisma: PrismaService,
     private readonly roundRobinStrategy: RoundRobinStrategy,
     private readonly weightedRoundRobinStrategy: WeightedRoundRobinStrategy,
+    private readonly leastConnectionsStrategy: LeastConnectionsStrategy,
   ) {
     this.strategies = {
       [LoadBalancingStrategy.ROUND_ROBIN]: this.roundRobinStrategy,
       [LoadBalancingStrategy.WEIGHTED_ROUND_ROBIN]: this.weightedRoundRobinStrategy,
+      [LoadBalancingStrategy.LEAST_CONNECTIONS]: this.leastConnectionsStrategy,
     };
   }
 
