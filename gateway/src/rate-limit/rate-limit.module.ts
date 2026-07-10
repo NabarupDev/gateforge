@@ -16,20 +16,29 @@ import { RateLimitGuard } from './rate-limit.guard';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const url = configService.get<string>('REDIS_URL') || process.env.REDIS_URL;
+        console.log('[Redis] Connecting to URL:', url ? 'YES (Hidden for security)' : 'NO URL FOUND');
+        let client: Redis;
         if (url) {
-          return new Redis(url, { maxRetriesPerRequest: 3 });
+          client = new Redis(url, { maxRetriesPerRequest: 3 });
+        } else {
+          const host = configService.get<string>('REDIS_HOST') || process.env.REDIS_HOST || 'localhost';
+          const port = Number(configService.get<number>('REDIS_PORT') || process.env.REDIS_PORT || 6379);
+          const username = configService.get<string>('REDIS_USERNAME') || process.env.REDIS_USERNAME;
+          const password = configService.get<string>('REDIS_PASSWORD') || process.env.REDIS_PASSWORD;
+          client = new Redis({
+            host,
+            port,
+            username,
+            password,
+            maxRetriesPerRequest: 3,
+          });
         }
-        const host = configService.get<string>('REDIS_HOST') || process.env.REDIS_HOST || 'localhost';
-        const port = Number(configService.get<number>('REDIS_PORT') || process.env.REDIS_PORT || 6379);
-        const username = configService.get<string>('REDIS_USERNAME') || process.env.REDIS_USERNAME;
-        const password = configService.get<string>('REDIS_PASSWORD') || process.env.REDIS_PASSWORD;
-        return new Redis({
-          host,
-          port,
-          username,
-          password,
-          maxRetriesPerRequest: 3,
+        
+        client.on('error', (err) => {
+          console.error('[Redis] Connection Error:', err.message);
         });
+        
+        return client;
       },
     },
     SlidingWindowLogAlgorithm,

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
@@ -6,6 +6,7 @@ import { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { RouteConfig } from '../config/gateway.config';
 import { RegistryService } from '../registry/registry.service';
 import { LoadBalancerService } from '../load-balancer/load-balancer.service';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 export interface ProxyResponse {
   status: number;
@@ -23,6 +24,7 @@ export class ProxyService {
     private readonly configService: ConfigService,
     private readonly registryService: RegistryService,
     private readonly loadBalancerService: LoadBalancerService,
+    private readonly circuitBreakerService: CircuitBreakerService,
   ) {}
 
   async forwardRequest(req: any): Promise<ProxyResponse> {
@@ -38,7 +40,24 @@ export class ProxyService {
     if (service) {
       const instance = await this.loadBalancerService.selectInstance(service);
       selectedInstanceId = instance.id;
-      const activeInst = await this.loadBalancerService.incrementConnections(instance.id);
+
+      // Check Circuit Breaker before incrementing connections or forwarding
+      const cbState = await this.circuitBreakerService.checkState(instance.id);
+      if (cbState === 'OPEN') {
+        throw new HttpException(
+          {
+            success: false,
+            error: {
+              code: 'CIRCUIT_OPEN',
+              message: `Service at ${instance.host}:${instance.port} is temporarily unavailable due to repeated failures.`,
+            },
+            timestamp: new Date().toISOString(),
+          },
+          HttpStatus.SERVICE_UNAVAILABLE, // 503
+        );
+      }
+
+      const activeConnections = await this.loadBalancerService.incrementConnections(instance.id);
 
       targetUrl = `http://${instance.host}:${instance.port}${urlPath}`;
       backendName = `${service.name} (${instance.host}:${instance.port})`;
@@ -50,7 +69,7 @@ export class ProxyService {
         strategy: service.strategy,
         selectedInstance: `${instance.host}:${instance.port}`,
         instanceId: instance.id,
-        activeConnections: activeInst ? activeInst.activeConnections : instance.activeConnections + 1,
+        activeConnections,
       }));
     } else {
       // 2. Fallback to static routes
@@ -82,6 +101,7 @@ export class ProxyService {
       url: targetUrl,
       headers,
       validateStatus: () => true, // Never throw on 4xx/5xx responses from backend
+      timeout: 3000, // Timeout of 3 seconds for Circuit Breaker
     };
 
     // Attach body for methods that support it
@@ -94,6 +114,11 @@ export class ProxyService {
         this.httpService.request(config),
       );
 
+      // Successfully contacted backend. Record success if dynamic instance
+      if (selectedInstanceId) {
+        await this.circuitBreakerService.recordSuccess(selectedInstanceId);
+      }
+
       // Clean response headers before returning to client
       const responseHeaders = this.cleanResponseHeaders(response.headers || {});
 
@@ -105,6 +130,11 @@ export class ProxyService {
       };
     } catch (error: any) {
       this.logger.error(`Error proxying request to ${targetUrl}: ${error.message}`);
+
+      // Backend unreachable or timed out. Record failure if dynamic instance
+      if (selectedInstanceId) {
+        await this.circuitBreakerService.recordFailure(selectedInstanceId);
+      }
 
       return {
         status: 502,
