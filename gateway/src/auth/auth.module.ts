@@ -7,6 +7,9 @@ import { GatewayJwtService } from './jwt.service';
 import { AuthController } from './auth.controller';
 import { GatewayAuthGuard } from './auth.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { JwtAuthenticationProvider } from './providers/jwt-authentication.provider';
+import { ApiKeyAuthenticationProvider } from './providers/api-key-authentication.provider';
+import { AuthenticationManagerService } from './authentication-manager.service';
 import { AUTH_PROVIDER, DEFAULT_JWT_SECRET } from './auth.constants';
 
 @Module({
@@ -25,6 +28,9 @@ import { AUTH_PROVIDER, DEFAULT_JWT_SECRET } from './auth.constants';
     AuthService,
     GatewayJwtService,
     JwtStrategy,
+    JwtAuthenticationProvider,
+    ApiKeyAuthenticationProvider,
+    AuthenticationManagerService,
     {
       provide: AUTH_PROVIDER,
       useClass: JwtStrategy,
@@ -34,6 +40,12 @@ import { AUTH_PROVIDER, DEFAULT_JWT_SECRET } from './auth.constants';
       useClass: GatewayAuthGuard,
     },
   ],
-  exports: [AuthService, GatewayJwtService, JwtModule, AUTH_PROVIDER],
+  exports: [
+    AuthService,
+    GatewayJwtService,
+    JwtModule,
+    AUTH_PROVIDER,
+    AuthenticationManagerService,
+  ],
 })
 export class AuthModule {}

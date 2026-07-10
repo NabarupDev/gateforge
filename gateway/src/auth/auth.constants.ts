@@ -5,3 +5,6 @@ export const HEADER_USER_EMAIL = 'x-user-email';
 export const HEADER_USER_ROLE = 'x-user-role';
 export const HEADER_REQUEST_ID = 'x-request-id';
 export const HEADER_REQUEST_ID_UPPER = 'X-Request-ID';
+export const HEADER_AUTH_TYPE = 'x-auth-type';
+export const HEADER_CONSUMER_ID = 'x-consumer-id';
+export const HEADER_API_KEY_ID = 'x-api-key-id';

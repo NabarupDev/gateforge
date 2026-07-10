@@ -2,9 +2,7 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
   ForbiddenException,
-  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -12,14 +10,16 @@ import { randomUUID } from 'crypto';
 import { IS_PUBLIC_KEY } from './decorators/public.decorator';
 import { ROLES_KEY } from './decorators/roles.decorator';
 import { RouteConfig } from '../config/gateway.config';
-import type { AuthProvider } from './interfaces/auth-provider.interface';
+import { AuthenticationManagerService } from './authentication-manager.service';
 import {
-  AUTH_PROVIDER,
   HEADER_USER_ID,
   HEADER_USER_EMAIL,
   HEADER_USER_ROLE,
   HEADER_REQUEST_ID,
   HEADER_REQUEST_ID_UPPER,
+  HEADER_AUTH_TYPE,
+  HEADER_CONSUMER_ID,
+  HEADER_API_KEY_ID,
 } from './auth.constants';
 
 @Injectable()
@@ -27,7 +27,7 @@ export class GatewayAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly configService: ConfigService,
-    @Inject(AUTH_PROVIDER) private readonly authProvider: AuthProvider,
+    private readonly authManager: AuthenticationManagerService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -58,35 +58,13 @@ export class GatewayAuthGuard implements CanActivate {
       return true;
     }
 
-    // Step 1: Extract Bearer Token
-    const token = this.extractTokenFromHeader(request);
-    if (!token) {
-      throw new UnauthorizedException({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Step 2: Verify Token using AuthProvider interface
-    try {
-      const user = await this.authProvider.verifyToken(token);
-      request.user = user;
-      if (request.raw) {
-        request.raw.user = user;
-      }
-    } catch (error: any) {
-      throw new UnauthorizedException({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-        timestamp: new Date().toISOString(),
-      });
+    // Authenticate using multi-provider authentication chain (JWT first, API Key second)
+    const principal = await this.authManager.authenticate(request);
+    request.auth = principal;
+    request.user = principal;
+    if (request.raw) {
+      request.raw.auth = principal;
+      request.raw.user = principal;
     }
 
     // Step 5: Check Role Restrictions (@Roles() or route config requiredRoles)
@@ -97,8 +75,8 @@ export class GatewayAuthGuard implements CanActivate {
     const requiredRoles = requiredRolesReflector || matchedRoute?.requiredRoles || [];
 
     if (requiredRoles.length > 0) {
-      const userRole = request.user?.role;
-      if (!userRole || !requiredRoles.includes(userRole)) {
+      const principalRole = principal?.role;
+      if (!principalRole || !requiredRoles.includes(principalRole)) {
         throw new ForbiddenException({
           success: false,
           error: {
@@ -110,25 +88,30 @@ export class GatewayAuthGuard implements CanActivate {
       }
     }
 
-    // Step 6: Identity & Request ID Propagation into downstream HTTP headers
-    const userId = String(request.user.id || request.user.sub || '');
-    const userEmail = String(request.user.email || '');
-    const userRole = String(request.user.role || '');
+    // Identity & Request ID Propagation into downstream HTTP headers
     const requestId = request.requestId || request.headers[HEADER_REQUEST_ID] || randomUUID();
-
     if (!request.headers) request.headers = {};
-    request.headers[HEADER_USER_ID] = userId;
-    request.headers[HEADER_USER_EMAIL] = userEmail;
-    request.headers[HEADER_USER_ROLE] = userRole;
-    request.headers[HEADER_REQUEST_ID] = requestId;
-    request.headers[HEADER_REQUEST_ID_UPPER] = requestId;
+    if (request.raw && !request.raw.headers) request.raw.headers = {};
 
-    if (request.raw && request.raw.headers) {
-      request.raw.headers[HEADER_USER_ID] = userId;
-      request.raw.headers[HEADER_USER_EMAIL] = userEmail;
-      request.raw.headers[HEADER_USER_ROLE] = userRole;
-      request.raw.headers[HEADER_REQUEST_ID] = requestId;
-      request.raw.headers[HEADER_REQUEST_ID_UPPER] = requestId;
+    const injectHeader = (key: string, value: string) => {
+      request.headers[key] = value;
+      if (request.raw && request.raw.headers) {
+        request.raw.headers[key] = value;
+      }
+    };
+
+    injectHeader(HEADER_AUTH_TYPE, principal.type);
+    injectHeader(HEADER_REQUEST_ID, requestId);
+    injectHeader(HEADER_REQUEST_ID_UPPER, requestId);
+
+    if (principal.type === 'jwt') {
+      injectHeader(HEADER_USER_ID, String(principal.userId || principal.id || ''));
+      injectHeader(HEADER_USER_EMAIL, String(principal.email || ''));
+      injectHeader(HEADER_USER_ROLE, String(principal.role || ''));
+    } else if (principal.type === 'api-key') {
+      injectHeader(HEADER_CONSUMER_ID, String(principal.consumerId || principal.id || ''));
+      injectHeader(HEADER_API_KEY_ID, String(principal.keyId || ''));
+      injectHeader(HEADER_USER_ROLE, String(principal.role || 'consumer'));
     }
 
     return true;
@@ -155,7 +138,6 @@ export class GatewayAuthGuard implements CanActivate {
       request.raw.headers[HEADER_REQUEST_ID_UPPER] = requestId;
     }
 
-    // Set on response
     if (response && typeof response.header === 'function') {
       response.header(HEADER_REQUEST_ID_UPPER, requestId);
     } else if (response && typeof response.setHeader === 'function') {
@@ -163,15 +145,5 @@ export class GatewayAuthGuard implements CanActivate {
     } else if (response && response.raw && typeof response.raw.setHeader === 'function') {
       response.raw.setHeader(HEADER_REQUEST_ID_UPPER, requestId);
     }
-  }
-
-  private extractTokenFromHeader(request: any): string | undefined {
-    const headers = request.headers || (request.raw && request.raw.headers) || {};
-    const authHeader = headers.authorization || headers.Authorization;
-    if (!authHeader || typeof authHeader !== 'string') {
-      return undefined;
-    }
-    const [type, token] = authHeader.split(' ');
-    return type === 'Bearer' ? token : undefined;
   }
 }
