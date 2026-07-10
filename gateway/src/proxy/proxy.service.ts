@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { RouteConfig } from '../config/gateway.config';
+import { RegistryService } from '../registry/registry.service';
+import { LoadBalancerService } from '../load-balancer/load-balancer.service';
 
 export interface ProxyResponse {
   status: number;
@@ -19,28 +21,56 @@ export class ProxyService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly registryService: RegistryService,
+    private readonly loadBalancerService: LoadBalancerService,
   ) {}
 
   async forwardRequest(req: any): Promise<ProxyResponse> {
-    const routes = this.configService.get<RouteConfig[]>('gateway.routes') || [];
     const urlPath = req.url || req.originalUrl || '/';
     const pathOnly = urlPath.split('?')[0];
 
-    // Find matching route by prefix
-    const matchedRoute = routes.find((route) => pathOnly.startsWith(route.pathPrefix));
+    // 1. Check dynamic service registry first
+    const service = await this.registryService.findServiceByPath(urlPath);
+    let targetUrl: string;
+    let selectedInstanceId: string | null = null;
+    let backendName = 'StaticBackend';
 
-    if (!matchedRoute) {
-      throw new NotFoundException({
-        success: false,
-        error: {
-          code: 'ROUTE_NOT_FOUND',
-          message: `No route configured for path ${pathOnly}`,
-        },
-        timestamp: new Date().toISOString(),
-      });
+    if (service) {
+      const instance = await this.loadBalancerService.selectInstance(service);
+      selectedInstanceId = instance.id;
+      const activeInst = await this.loadBalancerService.incrementConnections(instance.id);
+
+      targetUrl = `http://${instance.host}:${instance.port}${urlPath}`;
+      backendName = `${service.name} (${instance.host}:${instance.port})`;
+
+      this.logger.log(JSON.stringify({
+        event: 'LOAD_BALANCER_ROUTING',
+        requestId: req.headers?.['x-request-id'] || 'unknown',
+        service: service.name,
+        strategy: service.strategy,
+        selectedInstance: `${instance.host}:${instance.port}`,
+        instanceId: instance.id,
+        activeConnections: activeInst ? activeInst.activeConnections : instance.activeConnections + 1,
+      }));
+    } else {
+      // 2. Fallback to static routes
+      const routes = this.configService.get<RouteConfig[]>('gateway.routes') || [];
+      const matchedRoute = routes.find((route) => pathOnly.startsWith(route.pathPrefix));
+
+      if (!matchedRoute) {
+        throw new NotFoundException({
+          success: false,
+          error: {
+            code: 'ROUTE_NOT_FOUND',
+            message: `No route configured for path ${pathOnly}`,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      targetUrl = `${matchedRoute.target}${urlPath}`;
+      backendName = matchedRoute.target;
     }
-
-    const targetUrl = `${matchedRoute.target}${urlPath}`;
 
     // Clean headers before forwarding
     const headers = this.cleanHeaders(req.headers || {});
@@ -82,7 +112,7 @@ export class ProxyService {
           success: false,
           error: {
             code: 'BAD_GATEWAY',
-            message: `Backend service at ${matchedRoute.target} is unreachable or connection failed`,
+            message: `Backend service at ${backendName} is unreachable or connection failed`,
             details: error.message,
           },
           timestamp: new Date().toISOString(),
@@ -90,6 +120,10 @@ export class ProxyService {
         headers: { 'content-type': 'application/json' },
         targetUrl,
       };
+    } finally {
+      if (selectedInstanceId) {
+        await this.loadBalancerService.decrementConnections(selectedInstanceId);
+      }
     }
   }
 

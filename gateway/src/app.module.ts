@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { DatabaseModule } from './database/database.module';
 import { RegistryModule } from './registry/registry.module';
+import { LoadBalancerModule } from './load-balancer/load-balancer.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import gatewayConfig from './config/gateway.config';
 
@@ -20,6 +21,7 @@ import gatewayConfig from './config/gateway.config';
     }),
     DatabaseModule,
     RegistryModule,
+    LoadBalancerModule,
     ApiKeyModule,
     AuthModule,
     RateLimitModule,
