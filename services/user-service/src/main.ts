@@ -1,3 +1,4 @@
+import './tracing';
 import express, { Request, Response } from 'express';
 import { ServiceName } from '@gateforge/shared';
 

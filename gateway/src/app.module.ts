@@ -17,6 +17,7 @@ import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { RetryModule } from './retry/retry.module';
 import { CacheModule } from './cache/cache.module';
 import { PluginModule } from './plugins/plugin.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -25,6 +26,7 @@ import gatewayConfig from './config/gateway.config';
       isGlobal: true,
       load: [gatewayConfig],
     }),
+    TelemetryModule,
     DatabaseModule,
     RegistryModule,
     LoadBalancerModule,

@@ -50,6 +50,11 @@ export class GatewayAuthGuard implements CanActivate {
     const urlPath = request.url || request.originalUrl || '/';
     const pathOnly = urlPath.split('?')[0];
 
+    // Built-in public routes
+    if (pathOnly === '/metrics' || pathOnly === '/health') {
+      return true;
+    }
+
     // Check if route matches config-based public rules
     const routes = this.configService.get<RouteConfig[]>('gateway.routes') || [];
     const matchedRoute = routes.find((route) => pathOnly.startsWith(route.pathPrefix));

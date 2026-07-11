@@ -1,6 +1,9 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { RUNTIME_STATE_STORE, CircuitStateData } from '../runtime-state/interfaces/runtime-state-store.interface';
 import type { RuntimeStateStore } from '../runtime-state/interfaces/runtime-state-store.interface';
+import { GATEFORGE_CIRCUIT_OPEN } from '../telemetry/telemetry.module';
+import { Counter } from 'prom-client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
 @Injectable()
 export class CircuitBreakerService {
@@ -12,6 +15,7 @@ export class CircuitBreakerService {
 
   constructor(
     @Inject(RUNTIME_STATE_STORE) private readonly stateStore: RuntimeStateStore,
+    @InjectMetric(GATEFORGE_CIRCUIT_OPEN) private readonly circuitOpenTotal: Counter<string>
   ) {}
 
   async checkState(instanceId: string): Promise<'CLOSED' | 'OPEN' | 'HALF_OPEN'> {
@@ -92,6 +96,7 @@ export class CircuitBreakerService {
     cb.cooldownUntil = cooldownUntil.toISOString();
 
     await this.stateStore.updateCircuit(instanceId, cb);
+    this.circuitOpenTotal.labels('unknown', instanceId).inc();
     
     this.logger.error(JSON.stringify({
       event: 'CIRCUIT_OPEN',

@@ -1,15 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { RequestStage, NextFunction } from '../interfaces/request-stage.interface';
 import { RequestContext } from '../interfaces/request-context.interface';
 import { ProxyResponse } from '../interfaces/proxy-response.interface';
 import { CacheService, CacheEntry } from '../../cache/cache.service';
+import { PipelineService } from '../pipeline.service';
+import { Counter } from 'prom-client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { GATEFORGE_CACHE_HITS, GATEFORGE_CACHE_MISSES } from '../../telemetry/telemetry.module';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class CacheStage implements RequestStage {
   private readonly logger = new Logger(CacheStage.name);
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly pipelineService: PipelineService,
+    @InjectMetric(GATEFORGE_CACHE_HITS) private readonly cacheHits: Counter<string>,
+    @InjectMetric(GATEFORGE_CACHE_MISSES) private readonly cacheMisses: Counter<string>
+  ) {}
 
   async execute(context: RequestContext, next: NextFunction): Promise<ProxyResponse> {
     const { req, service } = context;
@@ -32,6 +41,7 @@ export class CacheStage implements RequestStage {
     const entry = await this.cacheService.get(key);
 
     if (entry) {
+      this.cacheHits.labels(service.name).inc();
       // 5. ETag Check
       const ifNoneMatch = req.headers['if-none-match'];
       if (ifNoneMatch && entry.etag && ifNoneMatch === entry.etag) {
@@ -67,6 +77,7 @@ export class CacheStage implements RequestStage {
     }
 
     this.logger.debug(`Cache miss for ${key}`);
+    this.cacheMisses.labels(service.name).inc();
     return this.executeAndCache(context, next, true, key, service.defaultTtl);
   }
 

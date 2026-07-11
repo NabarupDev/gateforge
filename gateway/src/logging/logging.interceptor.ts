@@ -1,15 +1,22 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Inject } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { randomUUID } from 'crypto';
+import { trace } from '@opentelemetry/api';
+import { Counter, Histogram } from 'prom-client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import {
+  GATEFORGE_REQUESTS_TOTAL,
+  GATEFORGE_REQUEST_DURATION,
+} from '../telemetry/telemetry.module';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
+  constructor(
+    @InjectMetric(GATEFORGE_REQUESTS_TOTAL) private readonly requestsTotal: Counter<string>,
+    @InjectMetric(GATEFORGE_REQUEST_DURATION) private readonly requestDuration: Histogram<string>
+  ) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const httpContext = context.switchToHttp();
     const req = httpContext.getRequest();
@@ -78,15 +85,30 @@ export class LoggingInterceptor implements NestInterceptor {
       status = res.status;
     }
 
-    console.log('\nIncoming Request\n');
-    console.log(`Request ID : ${requestId}`);
-    console.log(`Auth Type  : ${authType}`);
-    console.log(`Principal  : ${principalId}`);
-    console.log(`Role       : ${role}`);
-    console.log(`Method     : ${method}`);
-    console.log(`Path       : ${path}`);
-    console.log(`Target     : ${target}`);
-    console.log(`Status     : ${status}`);
-    console.log(`Time       : ${time}`);
+    const activeSpan = trace.getActiveSpan();
+    const traceId = activeSpan ? activeSpan.spanContext().traceId : (req.headers['traceparent']?.split('-')[1] || req.headers['x-b3-traceid'] || 'unknown');
+
+    const latency = Date.now() - startTime;
+    const logObject = {
+      timestamp: new Date(startTime).toISOString(),
+      traceId: traceId,
+      requestId: requestId,
+      service: req.raw?.targetService || 'gateway',
+      instance: req.raw?.targetInstance || 'gateway',
+      latency: latency,
+      cache: res.getHeader?.('x-cache') || 'MISS',
+      retry: req.raw?.retryCount || 0,
+      status: status,
+      method: method,
+      path: path
+    };
+
+    // Use Pino or simple JSON stringify. We use JSON stringify for the exact clean format.
+    console.log(JSON.stringify(logObject));
+
+    // Record Metrics
+    const serviceName = req.raw?.targetService || 'gateway';
+    this.requestsTotal.labels(method, status.toString(), serviceName).inc();
+    this.requestDuration.labels(method, status.toString(), serviceName).observe(latency / 1000); // observe seconds
   }
 }

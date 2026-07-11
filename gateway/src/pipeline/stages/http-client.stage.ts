@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { RequestStage, NextFunction } from '../interfaces/request-stage.interface';
 import { RequestContext } from '../interfaces/request-context.interface';
 import { ProxyResponse } from '../interfaces/proxy-response.interface';
+import { trace, context as otelContext } from '@opentelemetry/api';
 
 @Injectable()
 export class HttpClientStage implements RequestStage {
@@ -18,11 +19,30 @@ export class HttpClientStage implements RequestStage {
 
     const method = (req.method || 'GET').toUpperCase();
     const data = req.body;
-    const headers = this.cleanHeaders(req.headers || {});
+    
+    const headers: Record<string, string> = {};
+    if (req.headers) {
+      Object.entries(req.headers).forEach(([key, value]) => {
+        if (!['host', 'connection'].includes(key.toLowerCase()) && value) {
+          headers[key] = Array.isArray(value) ? value.join(',') : value as string;
+        }
+      });
+    }
+
+    const reqId = (req as any).requestId || headers['x-request-id'];
+    if (reqId) {
+      headers['x-request-id'] = reqId;
+    }
+
+    const span = trace.getSpan(otelContext.active());
+    if (span) {
+      const spanContext = span.spanContext();
+      headers['traceparent'] = `00-${spanContext.traceId}-${spanContext.spanId}-01`;
+    }
 
     const fetchOptions: RequestInit = {
       method,
-      headers: headers as Record<string, string>,
+      headers,
       signal: abortSignal,
     };
 

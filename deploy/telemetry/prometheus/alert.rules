@@ -1,0 +1,20 @@
+groups:
+  - name: gateforge_alerts
+    rules:
+      - alert: GatewayHighErrorRate
+        expr: rate(gateforge_requests_total{status=~"5.."}[5m]) / rate(gateforge_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway High Error Rate"
+          description: "Gateway error rate is > 5% for the last 5 minutes."
+
+      - alert: FrequentCircuitOpens
+        expr: increase(gateforge_circuit_open_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Frequent Circuit Breaker Opens"
+          description: "Circuit breaker has opened > 10 times in the last 5 minutes."

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: telemetry-prometheus
+    volumes:
+      - ../telemetry/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../telemetry/prometheus/alert.rules:/etc/prometheus/alert.rules
+    ports:
+      - '9090:9090'
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: telemetry-grafana
+    volumes:
+      - ../telemetry/grafana/provisioning:/etc/grafana/provisioning
+      - ../telemetry/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - '3005:3000'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: telemetry-jaeger
+    ports:
+      - '16686:16686' # UI
+      - '4318:4318'   # OTLP HTTP
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: telemetry-loki
+    ports:
+      - '3100:3100'
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: telemetry-promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../telemetry/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+    command: -config.file=/etc/promtail/promtail-config.yml

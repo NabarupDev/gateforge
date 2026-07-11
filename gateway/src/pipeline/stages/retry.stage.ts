@@ -4,6 +4,9 @@ import { RequestContext } from '../interfaces/request-context.interface';
 import { ProxyResponse } from '../interfaces/proxy-response.interface';
 import { RUNTIME_STATE_STORE } from '../../runtime-state/interfaces/runtime-state-store.interface';
 import type { RuntimeStateStore } from '../../runtime-state/interfaces/runtime-state-store.interface';
+import { Counter } from 'prom-client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { GATEFORGE_RETRY_TOTAL } from '../../telemetry/telemetry.module';
 
 @Injectable()
 export class RetryStage implements RequestStage {
@@ -12,6 +15,7 @@ export class RetryStage implements RequestStage {
   constructor(
     @Inject(RUNTIME_STATE_STORE)
     private readonly stateStore: RuntimeStateStore,
+    @InjectMetric(GATEFORGE_RETRY_TOTAL) private readonly retriesTotal: Counter<string>
   ) {}
 
   async execute(context: RequestContext, next: NextFunction): Promise<ProxyResponse> {
@@ -49,6 +53,7 @@ export class RetryStage implements RequestStage {
             attempt++;
             await this.delay(baseBackoff, attempt);
             if (service) await this.stateStore.incrementServiceMetric(service.id, 'retries').catch(() => {});
+            this.retriesTotal.labels(service?.name || 'unknown').inc();
             this.logger.warn(`Retrying request due to ${response.status} (Attempt ${attempt}/${maxRetries})`);
             continue;
           } else {
@@ -74,6 +79,7 @@ export class RetryStage implements RequestStage {
             }
             await this.delay(baseBackoff, attempt);
             if (service) await this.stateStore.incrementServiceMetric(service.id, 'retries').catch(() => {});
+            this.retriesTotal.labels(service?.name || 'unknown').inc();
             this.logger.warn(`Retrying request due to network error ${error.code || error.name} (Attempt ${attempt}/${maxRetries})`);
             continue;
           } else {

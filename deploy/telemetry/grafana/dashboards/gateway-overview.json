@@ -1,0 +1,27 @@
+{
+  "title": "Gateway Overview",
+  "panels": [
+    {
+      "title": "Total Requests",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(gateforge_requests_total[1m]))",
+          "legendFormat": "RPS"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "P95 Latency",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(gateforge_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95 Latency (s)"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    }
+  ]
+}
