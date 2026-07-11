@@ -1,14 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { RequestStage, NextFunction } from '../interfaces/request-stage.interface';
 import { RequestContext } from '../interfaces/request-context.interface';
 import { ProxyResponse } from '../interfaces/proxy-response.interface';
-import { LoadBalancerService } from '../../load-balancer/load-balancer.service';
+import type { InstanceSelector } from '../../instance-selector/instance-selector.interface';
+import { INSTANCE_SELECTOR } from '../../instance-selector/instance-selector.interface';
 
 @Injectable()
-export class LoadBalancerStage implements RequestStage {
-  private readonly logger = new Logger(LoadBalancerStage.name);
+export class InstanceSelectionStage implements RequestStage {
+  private readonly logger = new Logger(InstanceSelectionStage.name);
 
-  constructor(private readonly loadBalancerService: LoadBalancerService) {}
+  constructor(@Inject(INSTANCE_SELECTOR) private readonly instanceSelector: InstanceSelector) {}
 
   async execute(context: RequestContext, next: NextFunction): Promise<ProxyResponse> {
     if (!context.service) {
@@ -16,16 +17,16 @@ export class LoadBalancerStage implements RequestStage {
       return next();
     }
 
-    const instance = await this.loadBalancerService.selectInstance(context.service);
+    const instance = await this.instanceSelector.select(context);
     context.instance = instance;
     
     const urlPath = context.req.url || context.req.originalUrl || '/';
     context.targetUrl = `http://${instance.host}:${instance.port}${urlPath}`;
 
-    const activeConnections = await this.loadBalancerService.incrementConnections(instance.id);
+    const activeConnections = await this.instanceSelector.incrementConnections(instance.id);
 
     this.logger.log(JSON.stringify({
-      event: 'LOAD_BALANCER_ROUTING',
+      event: 'INSTANCE_SELECTION',
       requestId: context.req.headers?.['x-request-id'] || 'unknown',
       service: context.service.name,
       strategy: context.service.strategy,
@@ -37,7 +38,7 @@ export class LoadBalancerStage implements RequestStage {
     try {
       return await next();
     } finally {
-      await this.loadBalancerService.decrementConnections(instance.id);
+      await this.instanceSelector.decrementConnections(instance.id);
     }
   }
 }

@@ -15,6 +15,8 @@ import { HealthMonitorModule } from './health-monitor/health-monitor.module';
 import { RuntimeStateModule } from './runtime-state/runtime-state.module';
 import { CircuitBreakerModule } from './circuit-breaker/circuit-breaker.module';
 import { RetryModule } from './retry/retry.module';
+import { CacheModule } from './cache/cache.module';
+import { PluginModule } from './plugins/plugin.module';
 import gatewayConfig from './config/gateway.config';
 
 @Module({
@@ -33,6 +35,8 @@ import gatewayConfig from './config/gateway.config';
     RuntimeStateModule,
     CircuitBreakerModule,
     RetryModule,
+    CacheModule,
+    PluginModule,
     ProxyModule,
     LoggingModule,
     HealthModule,

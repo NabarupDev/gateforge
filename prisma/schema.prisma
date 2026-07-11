@@ -1,12 +1,10 @@
-// GateForge Central Database Schema (API Key management and analytics)
-
-datasource db {
-  provider = "postgresql"
-}
-
 generator client {
   provider   = "prisma-client-js"
   engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
 }
 
 model User {
@@ -21,58 +19,52 @@ model ApiConsumer {
   name        String
   description String?
   createdAt   DateTime @default(now())
-
   apiKeys     ApiKey[]
 }
 
 model ApiKey {
-  id          String   @id @default(cuid())
+  id         String      @id @default(cuid())
+  name       String
+  prefix     String
+  hashedKey  String
+  consumerId String
+  expiresAt  DateTime?
+  revoked    Boolean     @default(false)
+  lastUsedAt DateTime?
+  usageCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  consumer   ApiConsumer @relation(fields: [consumerId], references: [id])
+}
 
-  name        String
-  prefix      String
+model Service {
+  id                 String                @id @default(cuid())
+  name               String                @unique
+  basePath           String                @unique
+  strategy           LoadBalancingStrategy @default(ROUND_ROBIN)
+  enabled            Boolean               @default(true)
+  timeoutMs          Int                   @default(3000)
+  maxRetries         Int                   @default(2)
+  retryBackoffMs     Int                   @default(200)
+  idempotentRetries  Boolean               @default(true)
+  hedgingThresholdMs Int?
+  createdAt          DateTime              @default(now())
+  cacheEnabled       Boolean               @default(false)
+  defaultTtl         Int                   @default(60)
+  instances          ServiceInstance[]
+}
 
-  hashedKey   String
-
-  consumerId  String
-  consumer    ApiConsumer @relation(fields: [consumerId], references: [id])
-
-  expiresAt   DateTime?
-  revoked     Boolean     @default(false)
-
-  lastUsedAt  DateTime?
-  usageCount  Int         @default(0)
-
-  createdAt   DateTime    @default(now())
+model ServiceInstance {
+  id        String   @id @default(cuid())
+  serviceId String
+  host      String
+  port      Int
+  weight    Int      @default(1)
+  createdAt DateTime @default(now())
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
 
 enum LoadBalancingStrategy {
   ROUND_ROBIN
   WEIGHTED_ROUND_ROBIN
   LEAST_CONNECTIONS
-}
-
-model Service {
-  id        String                  @id @default(cuid())
-  name      String                  @unique
-  basePath  String                  @unique
-  strategy            LoadBalancingStrategy @default(ROUND_ROBIN)
-  enabled             Boolean               @default(true)
-  timeoutMs           Int                   @default(3000)
-  maxRetries          Int                   @default(2)
-  retryBackoffMs      Int                   @default(200)
-  idempotentRetries   Boolean               @default(true)
-  hedgingThresholdMs  Int?
-  instances           ServiceInstance[]
-  createdAt           DateTime              @default(now())
-}
-
-model ServiceInstance {
-  id                String       @id @default(cuid())
-  serviceId         String
-  service           Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  host              String
-  port              Int
-  weight            Int          @default(1)
-  
-  createdAt         DateTime     @default(now())
 }

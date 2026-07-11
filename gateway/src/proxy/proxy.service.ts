@@ -3,12 +3,14 @@ import { RequestContext } from '../pipeline/interfaces/request-context.interface
 import { ProxyResponse } from '../pipeline/interfaces/proxy-response.interface';
 import { PipelineService } from '../pipeline/pipeline.service';
 import { ServiceDiscoveryStage } from '../pipeline/stages/service-discovery.stage';
+import { CacheStage } from '../pipeline/stages/cache.stage';
 import { RetryStage } from '../pipeline/stages/retry.stage';
 import { HedgingStage } from '../pipeline/stages/hedging.stage';
-import { LoadBalancerStage } from '../pipeline/stages/load-balancer.stage';
+import { InstanceSelectionStage } from '../pipeline/stages/instance-selection.stage';
 import { CircuitBreakerStage } from '../pipeline/stages/circuit-breaker.stage';
 import { TimeoutStage } from '../pipeline/stages/timeout.stage';
 import { HttpClientStage } from '../pipeline/stages/http-client.stage';
+import { PluginManagerService } from '../plugins/plugin.manager';
 
 @Injectable()
 export class ProxyService {
@@ -17,12 +19,14 @@ export class ProxyService {
   constructor(
     private readonly pipelineService: PipelineService,
     private readonly serviceDiscoveryStage: ServiceDiscoveryStage,
+    private readonly cacheStage: CacheStage,
     private readonly retryStage: RetryStage,
     private readonly hedgingStage: HedgingStage,
-    private readonly loadBalancerStage: LoadBalancerStage,
+    private readonly instanceSelectionStage: InstanceSelectionStage,
     private readonly circuitBreakerStage: CircuitBreakerStage,
     private readonly timeoutStage: TimeoutStage,
     private readonly httpClientStage: HttpClientStage,
+    private readonly pluginManager: PluginManagerService,
   ) {}
 
   async forwardRequest(req: any): Promise<ProxyResponse> {
@@ -33,21 +37,30 @@ export class ProxyService {
 
     const stages = [
       this.serviceDiscoveryStage,
+      this.cacheStage,
       this.retryStage,
       this.hedgingStage,
-      this.loadBalancerStage,
+      this.instanceSelectionStage,
       this.circuitBreakerStage,
       this.timeoutStage,
       this.httpClientStage,
     ];
 
     try {
-      return await this.pipelineService.executePipeline(context, stages);
+      // 1. Plugin Hook: beforeRequest
+      await this.pluginManager.executeBeforeRequest(context);
+
+      // 2. Execute Pipeline
+      const response = await this.pipelineService.executePipeline(context, stages);
+
+      // 3. Plugin Hook: afterResponse
+      await this.pluginManager.executeAfterResponse(context, response);
+
+      return response;
     } catch (error: any) {
-      // If an HttpException (like 503 from CircuitBreaker or 404 from StaticRoutes) bubbles up,
-      // we should rethrow it so the global exception filter handles it, or just return it?
-      // Wait, original ProxyService threw HttpException for 404 and 503 (CircuitBreaker).
-      // Let's rethrow it if it has a status property (meaning it's an HttpException).
+      // Plugin Hook: onError
+      await this.pluginManager.executeOnError(context, error);
+
       if (error.status && error.response) {
         throw error; 
       }

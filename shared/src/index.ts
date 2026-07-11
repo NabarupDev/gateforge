@@ -111,6 +111,8 @@ export interface Service {
   retryBackoffMs: number;
   idempotentRetries: boolean;
   hedgingThresholdMs?: number | null;
+  cacheEnabled: boolean;
+  defaultTtl: number;
   instances?: ServiceInstance[];
   createdAt: Date | string;
 }

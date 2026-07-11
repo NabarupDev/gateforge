@@ -4,14 +4,16 @@ import * as http from 'http';
 import * as https from 'https';
 import { ConfigModule } from '@nestjs/config';
 import { RegistryModule } from '../registry/registry.module';
-import { LoadBalancerModule } from '../load-balancer/load-balancer.module';
+import { InstanceSelectorModule } from '../instance-selector/instance-selector.module';
 import { CircuitBreakerModule } from '../circuit-breaker/circuit-breaker.module';
 import { RuntimeStateModule } from '../runtime-state/runtime-state.module';
+import { CacheModule } from '../cache/cache.module';
 import { PipelineService } from './pipeline.service';
 import { ServiceDiscoveryStage } from './stages/service-discovery.stage';
+import { CacheStage } from './stages/cache.stage';
 import { RetryStage } from './stages/retry.stage';
 import { HedgingStage } from './stages/hedging.stage';
-import { LoadBalancerStage } from './stages/load-balancer.stage';
+import { InstanceSelectionStage } from './stages/instance-selection.stage';
 import { CircuitBreakerStage } from './stages/circuit-breaker.stage';
 import { TimeoutStage } from './stages/timeout.stage';
 import { HttpClientStage } from './stages/http-client.stage';
@@ -25,16 +27,18 @@ import { HttpClientStage } from './stages/http-client.stage';
     }),
     ConfigModule,
     RegistryModule,
-    LoadBalancerModule,
+    InstanceSelectorModule,
     CircuitBreakerModule,
     RuntimeStateModule,
+    CacheModule,
   ],
   providers: [
     PipelineService,
     ServiceDiscoveryStage,
+    CacheStage,
     RetryStage,
     HedgingStage,
-    LoadBalancerStage,
+    InstanceSelectionStage,
     CircuitBreakerStage,
     TimeoutStage,
     HttpClientStage,
@@ -42,9 +46,10 @@ import { HttpClientStage } from './stages/http-client.stage';
   exports: [
     PipelineService,
     ServiceDiscoveryStage,
+    CacheStage,
     RetryStage,
     HedgingStage,
-    LoadBalancerStage,
+    InstanceSelectionStage,
     CircuitBreakerStage,
     TimeoutStage,
     HttpClientStage,

@@ -12,6 +12,8 @@ export class RegisterServiceDto {
   retryBackoffMs?: number;
   idempotentRetries?: boolean;
   hedgingThresholdMs?: number;
+  cacheEnabled?: boolean;
+  defaultTtl?: number;
 }
 
 export class RegisterInstanceDto {
@@ -33,6 +35,8 @@ export class RegistryService {
 
     const strategy = (dto.strategy as any) || 'ROUND_ROBIN';
     const enabled = dto.enabled ?? true;
+    const cacheEnabled = dto.cacheEnabled ?? false;
+    const defaultTtl = dto.defaultTtl ?? 60;
 
     // Normalize basePath (must start with /)
     const basePath = dto.basePath.startsWith('/') ? dto.basePath : `/${dto.basePath}`;
@@ -48,6 +52,8 @@ export class RegistryService {
         retryBackoffMs: dto.retryBackoffMs,
         idempotentRetries: dto.idempotentRetries,
         hedgingThresholdMs: dto.hedgingThresholdMs,
+        cacheEnabled,
+        defaultTtl,
       },
       create: {
         name: dto.name,
@@ -59,6 +65,8 @@ export class RegistryService {
         retryBackoffMs: dto.retryBackoffMs,
         idempotentRetries: dto.idempotentRetries,
         hedgingThresholdMs: dto.hedgingThresholdMs,
+        cacheEnabled,
+        defaultTtl,
       },
       include: { instances: true },
     });
